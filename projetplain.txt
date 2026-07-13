@@ -1,0 +1,363 @@
+# Hybrid NSE/BSE Stock Scanner App (Android + Web)
+
+## Project Overview
+
+Build a hybrid stock scanner application that works on both Android and Web using the Upstox API. The application should scan NSE/BSE stocks in real time based on user-defined strategies and display live alerts.
+
+## Core Features
+
+### 1. Upstox API Authentication
+
+* On the first launch, ask the user to enter:
+
+  * Upstox API Key
+  * API Secret (if required)
+  * Access Token (or perform OAuth login if supported)
+* Validate the credentials.
+* Securely save them for future use.
+* Provide options to reconnect, update, or disconnect the Upstox account.
+
+---
+
+### 2. Strategy Management
+
+Create a dedicated **Strategy** section where users can:
+
+* Upload strategy files.
+* Create new strategies.
+* Edit existing strategies.
+* Delete strategies.
+* Import and export strategy files.
+
+Support:
+
+* Python strategy files (.py)
+* JSON-based strategy templates
+* Built-in strategy templates
+
+Each strategy should define:
+
+* Buy conditions
+* Sell conditions
+* Indicators
+* Timeframe
+* Alert conditions
+
+Only one strategy should run at a time unless the user enables multiple strategies.
+
+---
+
+### 3. Scanner Dashboard
+
+Create a professional dashboard that displays:
+
+* Active strategy name
+* Scanner status (Running / Stopped)
+* Last scan time
+* Next scan countdown
+* Total stocks scanned
+* Number of matched stocks
+* Market status (Open / Closed)
+* Selected timeframe
+* Selected market category
+
+Provide Start, Pause, Resume, and Stop buttons.
+
+---
+
+### 4. Live Market Scanner
+
+The scanner should support:
+
+* 5-minute candles
+* 15-minute candles
+* 30-minute candles
+* Daily candles
+
+Allow users to switch between timeframes instantly.
+
+The scanner should automatically fetch the latest candle data using the Upstox API.
+
+---
+
+### 5. Dynamic Loop Scanner
+
+The scanner should continuously scan the market.
+
+Allow users to configure the scan interval, for example:
+
+* Every 30 seconds
+* Every 1 minute
+* Every 2 minutes
+* Every 5 minutes
+* Every 10 minutes
+* Custom interval
+
+The application should automatically rescan after the selected interval.
+
+---
+
+### 6. Market Selection
+
+Provide options to scan:
+
+* All NSE Stocks
+* Large Cap
+* Mid Cap
+* Small Cap
+* Nifty 50
+* Nifty Next 50
+* Nifty 100
+* Nifty 200
+* Nifty 500
+* Bank Nifty
+* Sensex
+* BSE Stocks
+
+The scanner should support approximately 1,500+ Indian stocks.
+
+---
+
+### 7. Live Alert Dashboard
+
+Display all stocks that satisfy the selected strategy.
+
+Each alert card should show:
+
+* Stock Name
+* Symbol
+* Current Price
+* Time
+* Buy/Sell Signal
+* Timeframe
+* Volume
+* Percentage Change
+* Strategy Name
+
+The dashboard should update automatically without refreshing the page.
+
+---
+
+### 8. Notifications
+
+When a stock matches the strategy:
+
+* Send an in-app notification.
+* Play a notification sound.
+* Vibrate the Android device.
+* Show a browser notification for the web app.
+* Keep an alert history.
+
+---
+
+### 9. Search and Filters
+
+Allow users to filter alerts by:
+
+* Stock name
+* Sector
+* Price range
+* Market cap
+* Buy signals
+* Sell signals
+* Strategy
+* Timeframe
+
+---
+
+### 10. Performance
+
+The application should:
+
+* Scan efficiently without freezing.
+* Handle 1,500+ stocks smoothly.
+* Cache market data where appropriate.
+* Use asynchronous API calls for speed.
+
+---
+
+### 11. Technology Stack
+
+Frontend:
+
+* Flutter (for Android and Web)
+* Material Design 3
+
+Backend:
+
+* FastAPI (Python)
+
+Database:
+
+* SQLite (local)
+* PostgreSQL (optional for cloud)
+
+Broker API:
+
+* Upstox API
+
+Notifications:
+
+* Firebase Cloud Messaging (Android)
+* Browser Push Notifications (Web)
+
+---
+
+### 12. Settings
+
+Allow users to configure:
+
+* Default timeframe
+* Scan interval
+* Notification sound
+* Dark/Light theme
+* Auto-start scanner
+* API settings
+* Alert preferences
+
+---
+
+### 13. Future Features
+
+* Multiple strategy execution
+* Backtesting
+* Paper trading
+* Watchlists
+* Portfolio tracking
+* Telegram alerts
+* WhatsApp alerts
+* Email alerts
+* AI-based strategy suggestions
+* Cloud synchronization
+* Historical data analysis
+* Multi-broker support (Zerodha, Angel One, Groww, Dhan, etc.)
+
+---
+
+## UI Pages
+
+1. Splash Screen
+2. Login / Upstox Connection
+3. Dashboard
+4. Strategy Manager
+5. Live Scanner
+6. Alerts Screen
+7. Alert History
+8. Settings
+9. Profile
+
+---
+
+## Expected Workflow
+
+1. User opens the app.
+2. Connects their Upstox account.
+3. Uploads or creates a strategy.
+4. Selects the market category.
+5. Chooses the timeframe.
+6. Sets the scan interval.
+7. Starts the scanner.
+8. The app continuously scans live market data.
+9. Matching stocks appear instantly on the dashboard.
+10. Notifications are sent whenever a new alert is detected.
+11. Users can review alert history and modify settings at any time.
+
+## 14. Strategy Code Editor (User-Defined Strategy)
+
+The application should include a built-in **Strategy Code Editor** where users can write or paste their own stock scanning logic.
+
+### Features
+
+* Provide a **standard strategy template** whenever a user creates a new strategy.
+* Open the template in an integrated code editor.
+* The user only needs to modify the logic inside the designated section.
+* The rest of the template (imports, function definitions, API structure, error handling) should remain fixed and protected.
+
+### Code Editor
+
+The editor should support:
+
+* Syntax highlighting
+* Line numbers
+* Auto indentation
+* Auto-save
+* Copy/Paste
+* Undo/Redo
+* Find & Replace
+* Dark and Light themes
+* Code formatting
+
+### Strategy Template
+
+The app should automatically generate a template similar to:
+
+```python
+class MyStrategy:
+
+    def scan(stock_data):
+
+        # ============================
+        # Write your strategy below
+        # ============================
+
+        if YOUR_CONDITION:
+            return {
+                "signal": "BUY",
+                "reason": "Your condition matched"
+            }
+
+        return None
+```
+
+The user should only edit the strategy logic inside the marked section.
+
+### Strategy Validation
+
+Before saving or running a strategy, the application should:
+
+* Check for syntax errors.
+* Validate that the required function exists.
+* Ensure the strategy returns data in the correct format.
+* Display any errors with line numbers.
+* Prevent invalid strategies from running.
+
+### Strategy Management
+
+Users should be able to:
+
+* Create a new strategy.
+* Save a strategy.
+* Edit an existing strategy.
+* Duplicate a strategy.
+* Delete a strategy.
+* Import a strategy file.
+* Export a strategy file.
+
+### Built-in Templates
+
+Include several predefined strategy templates such as:
+
+* EMA Crossover
+* SMA Crossover
+* RSI Strategy
+* MACD Strategy
+* Bollinger Bands
+* VWAP Strategy
+* Breakout Strategy
+* Volume Breakout
+* Supertrend
+* Support & Resistance
+* Opening Range Breakout (ORB)
+
+Users can select any template and customize only the logic section.
+
+### Runtime
+
+When the scanner starts:
+
+1. Load the selected strategy.
+2. Execute the strategy for each scanned stock.
+3. If the strategy returns a BUY or SELL signal, display the stock on the dashboard and send a notification.
+4. Continue scanning at the user-defined interval until the scanner is stopped.
+
+
