@@ -10,6 +10,7 @@ import Alerts from './pages/Alerts'
 import AlertHistory from './pages/AlertHistory'
 import StrategyManager from './pages/StrategyManager'
 import Settings from './pages/Settings'
+import Debug from './pages/Debug'
 
 function AppLayout() {
   const { upstoxSession } = useAuth()
@@ -26,6 +27,7 @@ function AppLayout() {
           <Route path="/history" element={<AlertHistory />} />
           <Route path="/strategies" element={<StrategyManager />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/debug" element={<Debug />} />
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </main>

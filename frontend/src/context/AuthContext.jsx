@@ -4,17 +4,18 @@ import { supabase } from '../lib/supabase'
 const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null)
-  const [upstoxSession, setUpstoxSession] = useState(
-    JSON.parse(localStorage.getItem('upstox_session') || 'null')
-  )
+  const [upstoxSession, setUpstoxSession] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('upstox_session') || 'null')
+    } catch {
+      return null
+    }
+  })
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => setUser(data.session?.user ?? null))
-    const { data: listener } = supabase.auth.onAuthStateChange((_e, session) => {
-      setUser(session?.user ?? null)
-    })
-    return () => listener.subscription.unsubscribe()
+    // Only init supabase auth if client is available
+    if (!supabase) return
+    supabase.auth.getSession().catch(() => {})
   }, [])
 
   const saveUpstoxSession = (data) => {
@@ -28,7 +29,7 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, upstoxSession, saveUpstoxSession, clearUpstoxSession }}>
+    <AuthContext.Provider value={{ upstoxSession, saveUpstoxSession, clearUpstoxSession }}>
       {children}
     </AuthContext.Provider>
   )
