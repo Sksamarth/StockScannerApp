@@ -1,26 +1,34 @@
 import { useEffect, useState } from 'react'
-import api from '../lib/api'
+import { supabase } from '../lib/supabase'
+import { useAuth } from '../context/AuthContext'
 import { Trash2 } from 'lucide-react'
 
 export default function AlertHistory() {
+  const { upstoxSession } = useAuth()
   const [history, setHistory] = useState([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState({ signal: 'ALL', search: '' })
 
-  useEffect(() => { fetchHistory() }, [])
+  const apiKey = upstoxSession?.api_key
+
+  useEffect(() => { if (apiKey) fetchHistory() }, [apiKey])
 
   const fetchHistory = async () => {
     setLoading(true)
-    try {
-      const res = await api.get('/scanner/alerts/history')
-      setHistory(res.data)
-    } catch { /* silent */ }
-    finally { setLoading(false) }
+    const { data, error } = await supabase
+      .from('alerts')
+      .select('*')
+      .eq('api_key', apiKey)
+      .order('created_at', { ascending: false })
+      .limit(500)
+
+    if (!error) setHistory(data || [])
+    setLoading(false)
   }
 
   const clearHistory = async () => {
     if (!confirm('Clear all alert history?')) return
-    await api.delete('/scanner/alerts/history')
+    await supabase.from('alerts').delete().eq('api_key', apiKey)
     setHistory([])
   }
 
