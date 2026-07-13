@@ -9,8 +9,10 @@ frontend/.vite/
 
 # Environment files - NEVER commit these
 .env
+.env.local
 frontend/.env
 backend/.env
+.vercel/
 
 # Logs
 *.log
@@ -23,3 +25,6 @@ Thumbs.db
 # IDE
 .vscode/
 .idea/
+
+.vercel
+.env*
