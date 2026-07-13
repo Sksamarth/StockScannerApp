@@ -7,12 +7,12 @@ import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Scanner from './pages/Scanner'
 import Alerts from './pages/Alerts'
+import AlertHistory from './pages/AlertHistory'
 import StrategyManager from './pages/StrategyManager'
 import Settings from './pages/Settings'
 
 function AppLayout() {
   const { upstoxSession } = useAuth()
-
   if (!upstoxSession) return <Login />
 
   return (
@@ -23,6 +23,7 @@ function AppLayout() {
           <Route path="/" element={<Dashboard />} />
           <Route path="/scanner" element={<Scanner />} />
           <Route path="/alerts" element={<Alerts />} />
+          <Route path="/history" element={<AlertHistory />} />
           <Route path="/strategies" element={<StrategyManager />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="*" element={<Navigate to="/" />} />
@@ -38,7 +39,10 @@ export default function App() {
       <AuthProvider>
         <ScannerProvider>
           <AppLayout />
-          <Toaster position="top-right" toastOptions={{ style: { background: '#1f2937', color: '#fff', border: '1px solid #374151' } }} />
+          <Toaster
+            position="top-right"
+            toastOptions={{ style: { background: '#1f2937', color: '#fff', border: '1px solid #374151' } }}
+          />
         </ScannerProvider>
       </AuthProvider>
     </BrowserRouter>

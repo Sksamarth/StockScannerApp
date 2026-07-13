@@ -1,25 +1,42 @@
-import { createContext, useContext, useState, useRef } from 'react'
+import { createContext, useContext, useState, useRef, useEffect } from 'react'
 import api from '../lib/api'
+import { fireAlertNotification, requestNotificationPermission } from '../lib/notifications'
 
 const ScannerContext = createContext(null)
 
 export function ScannerProvider({ children }) {
-  const [status, setStatus] = useState('stopped') // running | paused | stopped
+  const [status, setStatus] = useState('stopped')
   const [alerts, setAlerts] = useState([])
   const [stats, setStats] = useState({ scanned: 0, matched: 0, lastScan: null })
   const intervalRef = useRef(null)
+  const configRef = useRef(null)
+
+  useEffect(() => { requestNotificationPermission() }, [])
+
+  const processResults = (data) => {
+    if (data.alerts?.length) {
+      data.alerts.forEach((a) => fireAlertNotification(a.symbol, a.signal, a.price))
+      setAlerts((prev) => {
+        const existingIds = new Set(prev.map((p) => `${p.symbol}-${p.time}`))
+        const newAlerts = data.alerts.filter((a) => !existingIds.has(`${a.symbol}-${a.time}`))
+        return [...newAlerts, ...prev].slice(0, 500)
+      })
+    }
+    setStats(data.stats)
+  }
+
+  const run = async () => {
+    try {
+      const res = await api.post('/scanner/run', configRef.current)
+      processResults(res.data)
+    } catch (e) {
+      console.error('Scanner error', e)
+    }
+  }
 
   const start = async (config) => {
+    configRef.current = config
     setStatus('running')
-    const run = async () => {
-      try {
-        const res = await api.post('/scanner/run', config)
-        setAlerts((prev) => [...res.data.alerts, ...prev].slice(0, 500))
-        setStats(res.data.stats)
-      } catch (e) {
-        console.error('Scanner error', e)
-      }
-    }
     await run()
     intervalRef.current = setInterval(run, (config.interval || 60) * 1000)
   }
@@ -30,12 +47,9 @@ export function ScannerProvider({ children }) {
   }
 
   const resume = (config) => {
+    configRef.current = config
     setStatus('running')
-    intervalRef.current = setInterval(async () => {
-      const res = await api.post('/scanner/run', config)
-      setAlerts((prev) => [...res.data.alerts, ...prev].slice(0, 500))
-      setStats(res.data.stats)
-    }, (config.interval || 60) * 1000)
+    intervalRef.current = setInterval(run, (config.interval || 60) * 1000)
   }
 
   const stop = () => {

@@ -106,10 +106,22 @@ router.get('/alerts/history', async (req, res) => {
     .select('*')
     .eq('api_key', api_key)
     .order('created_at', { ascending: false })
-    .limit(200)
+    .limit(500)
 
   if (error) return res.status(500).json({ error: error.message })
   res.json(data)
+})
+
+// Clear alert history
+router.delete('/alerts/history', async (req, res) => {
+  const api_key = req.headers['x-api-key']
+  const { error } = await supabase
+    .from('alerts')
+    .delete()
+    .eq('api_key', api_key)
+
+  if (error) return res.status(500).json({ error: error.message })
+  res.json({ success: true })
 })
 
 module.exports = router

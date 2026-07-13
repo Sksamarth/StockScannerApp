@@ -1,11 +1,12 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Bell, Code2, Settings, ScanLine } from 'lucide-react'
+import { LayoutDashboard, Bell, Code2, Settings, ScanLine, History } from 'lucide-react'
 import { useScanner } from '../context/ScannerContext'
 
 const links = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/scanner', icon: ScanLine, label: 'Scanner' },
-  { to: '/alerts', icon: Bell, label: 'Alerts' },
+  { to: '/alerts', icon: Bell, label: 'Live Alerts' },
+  { to: '/history', icon: History, label: 'Alert History' },
   { to: '/strategies', icon: Code2, label: 'Strategies' },
   { to: '/settings', icon: Settings, label: 'Settings' },
 ]
@@ -39,12 +40,18 @@ export default function Sidebar() {
           >
             <Icon size={18} />
             {label}
-            {label === 'Alerts' && alerts.length > 0 && (
-              <span className="ml-auto bg-red-600 text-white text-xs px-1.5 py-0.5 rounded-full">{alerts.length}</span>
+            {label === 'Live Alerts' && alerts.length > 0 && (
+              <span className="ml-auto bg-red-600 text-white text-xs px-1.5 py-0.5 rounded-full min-w-[20px] text-center">
+                {alerts.length > 99 ? '99+' : alerts.length}
+              </span>
             )}
           </NavLink>
         ))}
       </nav>
+
+      <div className="p-4 border-t border-gray-800 text-xs text-gray-600 text-center">
+        NSE/BSE Scanner v1.0
+      </div>
     </aside>
   )
 }

@@ -23,7 +23,8 @@ create table if not exists alerts (
   created_at timestamptz default now()
 );
 
--- Indexes for fast lookup
+-- Indexes
 create index if not exists idx_strategies_api_key on strategies(api_key);
 create index if not exists idx_alerts_api_key on alerts(api_key);
 create index if not exists idx_alerts_created_at on alerts(created_at desc);
+create index if not exists idx_alerts_signal on alerts(signal);
