@@ -22,7 +22,7 @@ export function ScannerProvider({ children }) {
         return [...newAlerts, ...prev].slice(0, 500)
       })
     }
-    setStats(data.stats)
+    setStats(data?.stats || { scanned: 0, matched: 0, lastScan: null })
   }
 
   const run = async () => {

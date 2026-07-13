@@ -22,7 +22,15 @@ export default function Scanner() {
   const [countdown, setCountdown] = useState(0)
 
   useEffect(() => {
-    api.get('/strategies').then((r) => setStrategies(r.data)).catch(() => {})
+    api.get('/strategies')
+      .then((r) => {
+        if (Array.isArray(r.data)) {
+          setStrategies(r.data)
+        } else {
+          setStrategies([])
+        }
+      })
+      .catch(() => setStrategies([]))
   }, [])
 
   useEffect(() => {
@@ -60,7 +68,7 @@ export default function Scanner() {
               className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm"
             >
               <option value="">-- Select Strategy --</option>
-              {strategies.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+              {Array.isArray(strategies) && strategies.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
           </div>
 
@@ -118,10 +126,10 @@ export default function Scanner() {
 
           <div className="space-y-3">
             {[
-              { label: 'Status', value: status.toUpperCase(), color: isRunning ? 'text-green-400' : isPaused ? 'text-yellow-400' : 'text-gray-500' },
-              { label: 'Stocks Scanned', value: stats.scanned },
-              { label: 'Signals Found', value: stats.matched },
-              { label: 'Last Scan', value: stats.lastScan ? new Date(stats.lastScan).toLocaleTimeString() : '--' },
+              { label: 'Status', value: (status || 'STOPPED').toUpperCase(), color: isRunning ? 'text-green-400' : isPaused ? 'text-yellow-400' : 'text-gray-500' },
+              { label: 'Stocks Scanned', value: stats?.scanned ?? 0 },
+              { label: 'Signals Found', value: stats?.matched ?? 0 },
+              { label: 'Last Scan', value: stats?.lastScan ? new Date(stats.lastScan).toLocaleTimeString() : '--' },
               { label: 'Next Scan In', value: isRunning ? `${countdown}s` : '--' },
             ].map(({ label, value, color }) => (
               <div key={label} className="flex justify-between items-center py-2 border-b border-gray-800">
