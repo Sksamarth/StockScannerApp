@@ -5,152 +5,78 @@ import toast from 'react-hot-toast'
 
 export default function Login() {
   const { saveUpstoxSession } = useAuth()
-  const [form, setForm] = useState({ api_key: '', api_secret: '', access_token: '', redirect_url: '' })
+  const [form, setForm] = useState({ api_key: '', api_secret: '', access_token: '' })
   const [loading, setLoading] = useState(false)
-  const [mode, setMode] = useState('token')
 
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value })
 
-  const handleTokenLogin = async (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault()
     if (!form.api_key.trim()) return toast.error('Enter your API Key')
     if (!form.access_token.trim()) return toast.error('Enter your Access Token')
     setLoading(true)
     try {
-      // Validate directly against Upstox API — no backend needed
       const res = await axios.get('https://api.upstox.com/v2/user/profile', {
-        headers: {
-          Authorization: `Bearer ${form.access_token.trim()}`,
-          Accept: 'application/json',
-        },
+        headers: { Authorization: `Bearer ${form.access_token.trim()}`, Accept: 'application/json' },
       })
-      const profile = res.data?.data || {}
-      saveUpstoxSession({
-        api_key: form.api_key.trim(),
-        api_secret: form.api_secret.trim(),
-        access_token: form.access_token.trim(),
-        profile,
-      })
-      toast.success(`Connected! Welcome ${profile.name || profile.email || ''}`)
+      saveUpstoxSession({ ...form, profile: res.data?.data || {} })
+      toast.success('Connected to Upstox!')
     } catch (err) {
-      const msg = err.response?.data?.message || err.response?.data?.errors?.[0]?.message || 'Invalid credentials'
-      toast.error(msg)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleOAuth = () => {
-    if (!form.api_key.trim()) return toast.error('Enter your API Key first')
-    if (!form.redirect_url.trim()) return toast.error('Enter your Redirect URL')
-    const url = `https://api.upstox.com/v2/login/authorization/dialog?response_type=code&client_id=${form.api_key.trim()}&redirect_uri=${encodeURIComponent(form.redirect_url.trim())}`
-    window.open(url, '_blank')
+      toast.error(err.response?.data?.message || 'Invalid credentials')
+    } finally { setLoading(false) }
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 flex items-center justify-center p-4">
-      <div className="bg-gray-900 border border-gray-800 rounded-2xl p-8 w-full max-w-md shadow-2xl">
+    <div className="min-h-screen flex items-center justify-center p-4" style={{ background: 'radial-gradient(ellipse at top, #1a1a3e 0%, #0a0a0f 60%)' }}>
+      {/* Background glow */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-96 rounded-full opacity-10 blur-3xl" style={{ background: 'radial-gradient(circle, #6366f1, transparent)' }} />
+
+      <div className="w-full max-w-md relative">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="text-5xl mb-3">📈</div>
-          <h1 className="text-2xl font-bold text-white">StockScanner</h1>
-          <p className="text-gray-400 text-sm mt-1">NSE / BSE Live Scanner</p>
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl text-3xl mb-4" style={{ background: 'linear-gradient(135deg,#6366f1,#8b5cf6)' }}>📈</div>
+          <h1 className="text-3xl font-bold text-white">StockScanner</h1>
+          <p className="text-gray-500 mt-1">NSE / BSE Live Market Scanner</p>
         </div>
 
-        {/* Mode Toggle */}
-        <div className="flex gap-2 mb-6 bg-gray-800 p-1 rounded-lg">
-          {['token', 'oauth'].map((m) => (
-            <button
-              key={m}
-              onClick={() => setMode(m)}
-              className={`flex-1 py-2 rounded-md text-sm font-medium transition-colors ${
-                mode === m ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'
-              }`}
-            >
-              {m === 'token' ? '🔑 Access Token' : '🔐 OAuth Login'}
+        {/* Card */}
+        <div className="card-glow p-8">
+          <h2 className="text-white font-semibold text-lg mb-6">Connect Upstox Account</h2>
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div>
+              <label className="text-gray-400 text-xs font-medium mb-2 block uppercase tracking-wide">API Key</label>
+              <input name="api_key" value={form.api_key} onChange={handleChange}
+                placeholder="Enter your Upstox API Key"
+                className="input" />
+            </div>
+            <div>
+              <label className="text-gray-400 text-xs font-medium mb-2 block uppercase tracking-wide">API Secret <span className="text-gray-600 normal-case">(optional)</span></label>
+              <input name="api_secret" value={form.api_secret} onChange={handleChange} type="password"
+                placeholder="Enter your API Secret"
+                className="input" />
+            </div>
+            <div>
+              <label className="text-gray-400 text-xs font-medium mb-2 block uppercase tracking-wide">Access Token</label>
+              <textarea name="access_token" value={form.access_token} onChange={handleChange}
+                placeholder="Paste your Access Token here..."
+                rows={4}
+                className="input resize-none font-mono text-xs" />
+            </div>
+            <button type="submit" disabled={loading} className="btn-primary w-full py-3 text-base mt-2">
+              {loading ? '⏳ Connecting...' : '🚀 Connect Upstox'}
             </button>
-          ))}
-        </div>
+          </form>
 
-        <form onSubmit={handleTokenLogin} className="space-y-4">
-          <div>
-            <label className="text-gray-400 text-xs mb-1 block">Upstox API Key *</label>
-            <input
-              name="api_key"
-              placeholder="Enter your API Key"
-              value={form.api_key}
-              onChange={handleChange}
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:border-blue-500 text-sm"
-            />
+          {/* Info */}
+          <div className="mt-6 p-4 rounded-xl text-xs space-y-2" style={{ background: 'rgba(99,102,241,0.05)', border: '1px solid rgba(99,102,241,0.1)' }}>
+            <p className="text-indigo-400 font-semibold">How to get Access Token:</p>
+            <p className="text-gray-500">1. Go to <a href="https://developer.upstox.com" target="_blank" rel="noreferrer" className="text-indigo-400 hover:underline">developer.upstox.com</a> → Create App</p>
+            <p className="text-gray-500">2. Complete OAuth login → copy Access Token</p>
+            <p className="text-yellow-600">⚠ Token expires daily at midnight IST</p>
           </div>
-
-          {mode === 'token' ? (
-            <>
-              <div>
-                <label className="text-gray-400 text-xs mb-1 block">API Secret (optional)</label>
-                <input
-                  name="api_secret"
-                  placeholder="Enter your API Secret"
-                  value={form.api_secret}
-                  onChange={handleChange}
-                  type="password"
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:border-blue-500 text-sm"
-                />
-              </div>
-              <div>
-                <label className="text-gray-400 text-xs mb-1 block">Access Token *</label>
-                <textarea
-                  name="access_token"
-                  placeholder="Paste your Access Token here"
-                  value={form.access_token}
-                  onChange={handleChange}
-                  rows={3}
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:border-blue-500 text-sm resize-none font-mono text-xs"
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-lg transition-colors"
-              >
-                {loading ? '⏳ Validating...' : '🚀 Connect Upstox'}
-              </button>
-            </>
-          ) : (
-            <>
-              <div>
-                <label className="text-gray-400 text-xs mb-1 block">Redirect URL *</label>
-                <input
-                  name="redirect_url"
-                  placeholder="e.g. https://yourapp.vercel.app"
-                  value={form.redirect_url}
-                  onChange={handleChange}
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:border-blue-500 text-sm"
-                />
-              </div>
-              <button
-                type="button"
-                onClick={handleOAuth}
-                className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded-lg transition-colors"
-              >
-                🔐 Login with Upstox OAuth
-              </button>
-            </>
-          )}
-        </form>
-
-        {/* Help */}
-        <div className="mt-6 p-4 bg-gray-800/50 rounded-lg text-xs text-gray-500 space-y-1">
-          <p className="text-gray-400 font-medium mb-2">How to get Access Token:</p>
-          <p>1. Go to <a href="https://developer.upstox.com" target="_blank" rel="noreferrer" className="text-blue-400 hover:underline">developer.upstox.com</a></p>
-          <p>2. Create an App → get API Key</p>
-          <p>3. Login via OAuth → copy Access Token</p>
-          <p className="text-yellow-600 mt-2">⚠ Token expires daily at midnight</p>
         </div>
 
-        <p className="text-gray-700 text-xs text-center mt-4">
-          Credentials stored locally only. Never shared.
-        </p>
+        <p className="text-center text-gray-700 text-xs mt-4">Credentials stored locally · Never shared</p>
       </div>
     </div>
   )
