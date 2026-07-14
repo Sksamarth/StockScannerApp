@@ -20,17 +20,50 @@ export default function Scanner() {
   const [config, setConfig] = useState({ market: 'Nifty 50', timeframe: '15min', interval: 60, strategy_id: '' })
   const [customInterval, setCustomInterval] = useState(60)
   const [countdown, setCountdown] = useState(0)
+  const [loading, setLoading] = useState(true)
+  const [selectedStrategyName, setSelectedStrategyName] = useState('')
 
+  // Load strategies and saved config on mount
   useEffect(() => {
-    api.get('/strategies')
-      .then((r) => {
-        if (Array.isArray(r.data)) {
-          setStrategies(r.data)
+    const loadData = async () => {
+      try {
+        // Fetch all strategies
+        const strategiesRes = await api.get('/strategies')
+        if (Array.isArray(strategiesRes.data)) {
+          setStrategies(strategiesRes.data)
         } else {
           setStrategies([])
         }
-      })
-      .catch(() => setStrategies([]))
+
+        // Load saved config
+        const configRes = await api.get('/scanner/config')
+        if (configRes.data) {
+          const savedConfig = {
+            market: configRes.data.market || 'Nifty 50',
+            timeframe: configRes.data.timeframe || '15min',
+            interval: configRes.data.interval || 60,
+            strategy_id: configRes.data.strategy_id || ''
+          }
+          setConfig(savedConfig)
+          setCustomInterval(savedConfig.interval === 0 ? 60 : savedConfig.interval)
+          
+          // Find and set strategy name
+          if (savedConfig.strategy_id && Array.isArray(strategiesRes.data)) {
+            const selected = strategiesRes.data.find(s => s.id === savedConfig.strategy_id)
+            if (selected) {
+              setSelectedStrategyName(selected.name)
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error loading data:', error)
+        setStrategies([])
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadData()
   }, [])
 
   useEffect(() => {
@@ -41,6 +74,80 @@ export default function Scanner() {
     return () => clearInterval(t)
   }, [status, config.interval])
 
+  // Save config when strategy changes
+  const handleStrategyChange = async (strategyId) => {
+    setConfig({ ...config, strategy_id: strategyId })
+    
+    // Find strategy name
+    if (strategyId && Array.isArray(strategies)) {
+      const selected = strategies.find(s => s.id === strategyId)
+      if (selected) {
+        setSelectedStrategyName(selected.name)
+      }
+    } else {
+      setSelectedStrategyName('')
+    }
+
+    // Save to backend
+    try {
+      await api.post('/scanner/config', {
+        market: config.market,
+        timeframe: config.timeframe,
+        interval: config.interval,
+        strategy_id: strategyId
+      })
+      toast.success('Strategy saved!')
+    } catch (error) {
+      console.error('Error saving strategy:', error)
+      toast.error('Failed to save strategy')
+    }
+  }
+
+  // Save config when market changes
+  const handleMarketChange = async (market) => {
+    setConfig({ ...config, market })
+    try {
+      await api.post('/scanner/config', {
+        market,
+        timeframe: config.timeframe,
+        interval: config.interval,
+        strategy_id: config.strategy_id
+      })
+    } catch (error) {
+      console.error('Error saving market:', error)
+    }
+  }
+
+  // Save config when timeframe changes
+  const handleTimeframeChange = async (timeframe) => {
+    setConfig({ ...config, timeframe })
+    try {
+      await api.post('/scanner/config', {
+        market: config.market,
+        timeframe,
+        interval: config.interval,
+        strategy_id: config.strategy_id
+      })
+    } catch (error) {
+      console.error('Error saving timeframe:', error)
+    }
+  }
+
+  // Save config when interval changes
+  const handleIntervalChange = async (interval) => {
+    setConfig({ ...config, interval })
+    try {
+      await api.post('/scanner/config', {
+        market: config.market,
+        timeframe: config.timeframe,
+        interval,
+        strategy_id: config.strategy_id
+      })
+    } catch (error) {
+      console.error('Error saving interval:', error)
+    }
+  }
+
   const handleStart = () => {
     if (!config.strategy_id) return toast.error('Select a strategy first')
     const interval = config.interval === 0 ? customInterval : config.interval
@@ -50,6 +157,15 @@ export default function Scanner() {
   const isRunning = status === 'running'
   const isPaused = status === 'paused'
   const isStopped = status === 'stopped'
+
+  if (loading) {
+    return (
+      <div className="p-6 space-y-6">
+        <h1 className="text-2xl font-bold text-white">Live Scanner</h1>
+        <div className="text-gray-400">Loading configuration...</div>
+      </div>
+    )
+  }
 
   return (
     <div className="p-6 space-y-6">
@@ -62,21 +178,30 @@ export default function Scanner() {
 
           <div>
             <label className="text-gray-400 text-xs mb-1 block">Strategy</label>
-            <select
-              value={config.strategy_id}
-              onChange={(e) => setConfig({ ...config, strategy_id: e.target.value })}
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm"
-            >
-              <option value="">-- Select Strategy --</option>
-              {Array.isArray(strategies) && strategies.filter(Boolean).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
+            <div className="space-y-2">
+              <select
+                value={config.strategy_id}
+                onChange={(e) => handleStrategyChange(e.target.value)}
+                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm"
+              >
+                <option value="">-- Select Strategy --</option>
+                {Array.isArray(strategies) && strategies.filter(Boolean).map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+              {selectedStrategyName && (
+                <div className="text-xs text-green-400 bg-green-900 bg-opacity-30 px-2 py-1 rounded">
+                  ✓ Selected: {selectedStrategyName}
+                </div>
+              )}
+            </div>
           </div>
 
           <div>
             <label className="text-gray-400 text-xs mb-1 block">Market Category</label>
             <select
               value={config.market}
-              onChange={(e) => setConfig({ ...config, market: e.target.value })}
+              onChange={(e) => handleMarketChange(e.target.value)}
               className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm"
             >
               {MARKET_CATEGORIES.map((m) => <option key={m}>{m}</option>)}
@@ -87,7 +212,7 @@ export default function Scanner() {
             <label className="text-gray-400 text-xs mb-1 block">Timeframe</label>
             <div className="flex gap-2 flex-wrap">
               {TIMEFRAMES.map((t) => (
-                <button key={t} onClick={() => setConfig({ ...config, timeframe: t })}
+                <button key={t} onClick={() => handleTimeframeChange(t)}
                   className={`px-3 py-1.5 rounded-lg text-sm ${config.timeframe === t ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>
                   {t}
                 </button>
@@ -99,7 +224,7 @@ export default function Scanner() {
             <label className="text-gray-400 text-xs mb-1 block">Scan Interval</label>
             <div className="flex gap-2 flex-wrap">
               {INTERVALS.map((i) => (
-                <button key={i.value} onClick={() => setConfig({ ...config, interval: i.value })}
+                <button key={i.value} onClick={() => handleIntervalChange(i.value)}
                   className={`px-3 py-1.5 rounded-lg text-sm ${config.interval === i.value ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>
                   {i.label}
                 </button>
