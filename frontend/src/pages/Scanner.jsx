@@ -20,17 +20,63 @@ export default function Scanner() {
   const [config, setConfig] = useState({ market: 'Nifty 50', timeframe: '15min', interval: 60, strategy_id: '' })
   const [customInterval, setCustomInterval] = useState(60)
   const [countdown, setCountdown] = useState(0)
+  const [loading, setLoading] = useState(true)
+  const [selectedStrategyName, setSelectedStrategyName] = useState('')
+  const [error, setError] = useState(null)
 
+  // Load strategies and saved config on mount
   useEffect(() => {
-    api.get('/strategies')
-      .then((r) => {
-        if (Array.isArray(r.data)) {
-          setStrategies(r.data)
-        } else {
-          setStrategies([])
+    const loadData = async () => {
+      try {
+        setError(null)
+        console.log('Loading strategies...')
+        
+        // Fetch all strategies
+        const strategiesRes = await api.get('/strategies')
+        console.log('Strategies response:', strategiesRes.data)
+        
+        const strategiesList = Array.isArray(strategiesRes.data) ? strategiesRes.data.filter(Boolean) : []
+        setStrategies(strategiesList)
+        
+        if (strategiesList.length === 0) {
+          console.warn('No strategies found - user may not be logged in')
+          setError('No strategies found. Create one in the Strategies page.')
         }
-      })
-      .catch(() => setStrategies([]))
+
+        // Load saved config
+        try {
+          const configRes = await api.get('/scanner/config')
+          if (configRes.data) {
+            const savedConfig = {
+              market: configRes.data.market || 'Nifty 50',
+              timeframe: configRes.data.timeframe || '15min',
+              interval: configRes.data.interval || 60,
+              strategy_id: configRes.data.strategy_id || ''
+            }
+            setConfig(savedConfig)
+            setCustomInterval(savedConfig.interval === 0 ? 60 : savedConfig.interval)
+            
+            // Find and set strategy name
+            if (savedConfig.strategy_id && strategiesList.length > 0) {
+              const selected = strategiesList.find(s => s.id === savedConfig.strategy_id)
+              if (selected) {
+                setSelectedStrategyName(selected.name)
+              }
+            }
+          }
+        } catch (configErr) {
+          console.log('No saved config yet:', configErr.message)
+        }
+      } catch (error) {
+        console.error('Error loading strategies:', error)
+        setError(`Failed to load strategies: ${error.message}`)
+        setStrategies([])
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadData()
   }, [])
 
   useEffect(() => {
@@ -39,10 +85,87 @@ export default function Scanner() {
     setCountdown(interval)
     const t = setInterval(() => setCountdown((c) => (c <= 1 ? interval : c - 1)), 1000)
     return () => clearInterval(t)
-  }, [status, config.interval])
+  }, [status, config.interval, customInterval])
+
+  // Save config when strategy changes
+  const handleStrategyChange = async (strategyId) => {
+    setConfig({ ...config, strategy_id: strategyId })
+    
+    // Find strategy name
+    if (strategyId && Array.isArray(strategies)) {
+      const selected = strategies.find(s => s.id === strategyId)
+      if (selected) {
+        setSelectedStrategyName(selected.name)
+      }
+    } else {
+      setSelectedStrategyName('')
+    }
+
+    // Save to backend
+    try {
+      await api.post('/scanner/config', {
+        market: config.market,
+        timeframe: config.timeframe,
+        interval: config.interval,
+        strategy_id: strategyId
+      })
+      toast.success('Strategy saved!')
+    } catch (error) {
+      console.error('Error saving strategy:', error)
+      toast.error('Failed to save strategy')
+    }
+  }
+
+  // Save config when market changes
+  const handleMarketChange = async (market) => {
+    setConfig({ ...config, market })
+    try {
+      await api.post('/scanner/config', {
+        market,
+        timeframe: config.timeframe,
+        interval: config.interval,
+        strategy_id: config.strategy_id
+      })
+    } catch (error) {
+      console.error('Error saving market:', error)
+    }
+  }
+
+  // Save config when timeframe changes
+  const handleTimeframeChange = async (timeframe) => {
+    setConfig({ ...config, timeframe })
+    try {
+      await api.post('/scanner/config', {
+        market: config.market,
+        timeframe,
+        interval: config.interval,
+        strategy_id: config.strategy_id
+      })
+    } catch (error) {
+      console.error('Error saving timeframe:', error)
+    }
+  }
+
+  // Save config when interval changes
+  const handleIntervalChange = async (interval) => {
+    setConfig({ ...config, interval })
+    try {
+      await api.post('/scanner/config', {
+        market: config.market,
+        timeframe: config.timeframe,
+        interval,
+        strategy_id: config.strategy_id
+      })
+    } catch (error) {
+      console.error('Error saving interval:', error)
+    }
+  }
 
   const handleStart = () => {
-    if (!config.strategy_id) return toast.error('Select a strategy first')
+    if (!config.strategy_id) {
+      toast.error('Select a strategy first')
+      return
+    }
     const interval = config.interval === 0 ? customInterval : config.interval
     start({ ...config, interval })
   }
@@ -51,9 +174,24 @@ export default function Scanner() {
   const isPaused = status === 'paused'
   const isStopped = status === 'stopped'
 
+  if (loading) {
+    return (
+      <div className="p-6 space-y-6">
+        <h1 className="text-2xl font-bold text-white">Live Scanner</h1>
+        <div className="text-gray-400">Loading configuration...</div>
+      </div>
+    )
+  }
+
   return (
     <div className="p-6 space-y-6">
       <h1 className="text-2xl font-bold text-white">Live Scanner</h1>
+
+      {error && (
+        <div className="bg-yellow-900 bg-opacity-50 border border-yellow-600 text-yellow-200 px-4 py-3 rounded-lg">
+          ⚠️ {error}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Config Panel */}
@@ -61,22 +199,37 @@ export default function Scanner() {
           <h2 className="text-white font-semibold">Scanner Configuration</h2>
 
           <div>
-            <label className="text-gray-400 text-xs mb-1 block">Strategy</label>
-            <select
-              value={config.strategy_id}
-              onChange={(e) => setConfig({ ...config, strategy_id: e.target.value })}
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm"
-            >
-              <option value="">-- Select Strategy --</option>
-              {Array.isArray(strategies) && strategies.filter(Boolean).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
+            <label className="text-gray-400 text-xs mb-1 block">Strategy {strategies.length === 0 && <span className="text-red-400">(No strategies available)</span>}</label>
+            <div className="space-y-2">
+              <select
+                value={config.strategy_id}
+                onChange={(e) => handleStrategyChange(e.target.value)}
+                disabled={strategies.length === 0}
+                className={`w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm ${strategies.length === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                <option value="">{strategies.length === 0 ? '-- Create strategies first --' : '-- Select Strategy --'}</option>
+                {strategies.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+              {selectedStrategyName && (
+                <div className="text-xs text-green-400 bg-green-900 bg-opacity-30 px-2 py-1 rounded">
+                  ✓ Selected: {selectedStrategyName}
+                </div>
+              )}
+              {strategies.length === 0 && (
+                <div className="text-xs text-blue-400 bg-blue-900 bg-opacity-30 px-2 py-1 rounded">
+                  💡 Go to Strategies page to create your first strategy
+                </div>
+              )}
+            </div>
           </div>
 
           <div>
             <label className="text-gray-400 text-xs mb-1 block">Market Category</label>
             <select
               value={config.market}
-              onChange={(e) => setConfig({ ...config, market: e.target.value })}
+              onChange={(e) => handleMarketChange(e.target.value)}
               className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm"
             >
               {MARKET_CATEGORIES.map((m) => <option key={m}>{m}</option>)}
@@ -87,7 +240,7 @@ export default function Scanner() {
             <label className="text-gray-400 text-xs mb-1 block">Timeframe</label>
             <div className="flex gap-2 flex-wrap">
               {TIMEFRAMES.map((t) => (
-                <button key={t} onClick={() => setConfig({ ...config, timeframe: t })}
+                <button key={t} onClick={() => handleTimeframeChange(t)}
                   className={`px-3 py-1.5 rounded-lg text-sm ${config.timeframe === t ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>
                   {t}
                 </button>
@@ -99,7 +252,7 @@ export default function Scanner() {
             <label className="text-gray-400 text-xs mb-1 block">Scan Interval</label>
             <div className="flex gap-2 flex-wrap">
               {INTERVALS.map((i) => (
-                <button key={i.value} onClick={() => setConfig({ ...config, interval: i.value })}
+                <button key={i.value} onClick={() => handleIntervalChange(i.value)}
                   className={`px-3 py-1.5 rounded-lg text-sm ${config.interval === i.value ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>
                   {i.label}
                 </button>
@@ -140,7 +293,7 @@ export default function Scanner() {
           </div>
 
           <div className="flex gap-3 pt-2">
-            {isStopped && <button onClick={handleStart} className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg font-medium">▶ Start</button>}
+            {isStopped && <button onClick={handleStart} disabled={!config.strategy_id} className={`flex-1 py-2 rounded-lg font-medium ${config.strategy_id ? 'bg-green-600 hover:bg-green-700 text-white cursor-pointer' : 'bg-gray-700 text-gray-400 cursor-not-allowed'}`}>▶ Start</button>}
             {isRunning && <button onClick={pause} className="flex-1 bg-yellow-600 hover:bg-yellow-700 text-white py-2 rounded-lg font-medium">⏸ Pause</button>}
             {isPaused && <button onClick={() => resume(config)} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-medium">▶ Resume</button>}
             {!isStopped && <button onClick={stop} className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 rounded-lg font-medium">⏹ Stop</button>}

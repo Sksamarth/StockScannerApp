@@ -3,61 +3,117 @@ const supabase = require('../supabase')
 const router = express.Router()
 
 router.get('/', async (req, res) => {
-  const api_key = req.headers['x-api-key']
-  if (!api_key) return res.status(401).json({ error: 'Unauthorized' })
+  try {
+    const api_key = req.headers['x-api-key']
+    
+    // If no API key, return empty array instead of error
+    if (!api_key || api_key === 'default-key') {
+      console.warn('No API key provided - returning empty strategies')
+      return res.json([])
+    }
 
-  const { data, error } = await supabase
-    .from('strategies')
-    .select('*')
-    .eq('api_key', api_key)
-    .order('created_at', { ascending: false })
+    const { data, error } = await supabase
+      .from('strategies')
+      .select('*')
+      .eq('api_key', api_key)
+      .order('created_at', { ascending: false })
 
-  if (error) return res.status(500).json({ error: error.message })
-  res.json(data)
+    if (error) {
+      console.error('Supabase error fetching strategies:', error)
+      return res.json([])
+    }
+    
+    res.json(data || [])
+  } catch (err) {
+    console.error('Error fetching strategies:', err)
+    res.json([])
+  }
 })
 
 router.post('/', async (req, res) => {
-  const api_key = req.headers['x-api-key']
-  const { name, code } = req.body
-  if (!api_key) return res.status(401).json({ error: 'Unauthorized' })
+  try {
+    const api_key = req.headers['x-api-key']
+    const { name, code } = req.body
 
-  const { data, error } = await supabase
-    .from('strategies')
-    .insert({ name, code, api_key })
-    .select()
-    .single()
+    if (!api_key || api_key === 'default-key') {
+      return res.status(401).json({ error: 'Please log in first' })
+    }
 
-  if (error) return res.status(500).json({ error: error.message })
-  res.json(data)
+    if (!name || !code) {
+      return res.status(400).json({ error: 'Name and code are required' })
+    }
+
+    const { data, error } = await supabase
+      .from('strategies')
+      .insert({ name, code, api_key })
+      .select()
+      .single()
+
+    if (error) {
+      console.error('Supabase error creating strategy:', error)
+      return res.status(500).json({ error: error.message })
+    }
+    
+    res.json(data)
+  } catch (err) {
+    console.error('Error creating strategy:', err)
+    res.status(500).json({ error: 'Internal server error' })
+  }
 })
 
 router.put('/:id', async (req, res) => {
-  const api_key = req.headers['x-api-key']
-  const { name, code } = req.body
+  try {
+    const api_key = req.headers['x-api-key']
+    const { name, code } = req.body
 
-  const { data, error } = await supabase
-    .from('strategies')
-    .update({ name, code, updated_at: new Date().toISOString() })
-    .eq('id', req.params.id)
-    .eq('api_key', api_key)
-    .select()
-    .single()
+    if (!api_key || api_key === 'default-key') {
+      return res.status(401).json({ error: 'Please log in first' })
+    }
 
-  if (error) return res.status(500).json({ error: error.message })
-  res.json(data)
+    const { data, error } = await supabase
+      .from('strategies')
+      .update({ name, code, updated_at: new Date().toISOString() })
+      .eq('id', req.params.id)
+      .eq('api_key', api_key)
+      .select()
+      .single()
+
+    if (error) {
+      console.error('Supabase error updating strategy:', error)
+      return res.status(500).json({ error: error.message })
+    }
+    
+    res.json(data)
+  } catch (err) {
+    console.error('Error updating strategy:', err)
+    res.status(500).json({ error: 'Internal server error' })
+  }
 })
 
 router.delete('/:id', async (req, res) => {
-  const api_key = req.headers['x-api-key']
+  try {
+    const api_key = req.headers['x-api-key']
 
-  const { error } = await supabase
-    .from('strategies')
-    .delete()
-    .eq('id', req.params.id)
-    .eq('api_key', api_key)
+    if (!api_key || api_key === 'default-key') {
+      return res.status(401).json({ error: 'Please log in first' })
+    }
 
-  if (error) return res.status(500).json({ error: error.message })
-  res.json({ success: true })
+    const { error } = await supabase
+      .from('strategies')
+      .delete()
+      .eq('id', req.params.id)
+      .eq('api_key', api_key)
+
+    if (error) {
+      console.error('Supabase error deleting strategy:', error)
+      return res.status(500).json({ error: error.message })
+    }
+    
+    res.json({ success: true })
+  } catch (err) {
+    console.error('Error deleting strategy:', err)
+    res.status(500).json({ error: 'Internal server error' })
+  }
 })
 
 module.exports = router
