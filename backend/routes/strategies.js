@@ -2,21 +2,15 @@ const express = require('express')
 const supabase = require('../supabase')
 const router = express.Router()
 
-// Middleware to validate API key
-const validateApiKey = (req, res, next) => {
-  const api_key = req.headers['x-api-key']
-  
-  if (!api_key || api_key === 'default-key') {
-    console.warn('Missing or invalid API key')
-    return res.status(401).json({ error: 'Missing x-api-key header. Please log in first.' })
-  }
-  
-  next()
-}
-
-router.get('/', validateApiKey, async (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const api_key = req.headers['x-api-key']
+    
+    // If no API key, return empty array instead of error
+    if (!api_key || api_key === 'default-key') {
+      console.warn('No API key provided - returning empty strategies')
+      return res.json([])
+    }
 
     const { data, error } = await supabase
       .from('strategies')
@@ -26,20 +20,24 @@ router.get('/', validateApiKey, async (req, res) => {
 
     if (error) {
       console.error('Supabase error fetching strategies:', error)
-      return res.status(500).json({ error: error.message })
+      return res.json([])
     }
     
     res.json(data || [])
   } catch (err) {
     console.error('Error fetching strategies:', err)
-    res.status(500).json({ error: 'Internal server error' })
+    res.json([])
   }
 })
 
-router.post('/', validateApiKey, async (req, res) => {
+router.post('/', async (req, res) => {
   try {
     const api_key = req.headers['x-api-key']
     const { name, code } = req.body
+
+    if (!api_key || api_key === 'default-key') {
+      return res.status(401).json({ error: 'Please log in first' })
+    }
 
     if (!name || !code) {
       return res.status(400).json({ error: 'Name and code are required' })
@@ -63,10 +61,14 @@ router.post('/', validateApiKey, async (req, res) => {
   }
 })
 
-router.put('/:id', validateApiKey, async (req, res) => {
+router.put('/:id', async (req, res) => {
   try {
     const api_key = req.headers['x-api-key']
     const { name, code } = req.body
+
+    if (!api_key || api_key === 'default-key') {
+      return res.status(401).json({ error: 'Please log in first' })
+    }
 
     const { data, error } = await supabase
       .from('strategies')
@@ -88,9 +90,13 @@ router.put('/:id', validateApiKey, async (req, res) => {
   }
 })
 
-router.delete('/:id', validateApiKey, async (req, res) => {
+router.delete('/:id', async (req, res) => {
   try {
     const api_key = req.headers['x-api-key']
+
+    if (!api_key || api_key === 'default-key') {
+      return res.status(401).json({ error: 'Please log in first' })
+    }
 
     const { error } = await supabase
       .from('strategies')
