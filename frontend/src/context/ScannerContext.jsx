@@ -30,34 +30,44 @@ export function ScannerProvider({ children }) {
 
   const run = async () => {
     try {
-      const { data } = await api.post('/scanner/start', configRef.current)
-      await new Promise((resolve, reject) => {
-        let polling = false
-        const poll = async () => {
-          if (polling) return
-          polling = true
-          try {
-            const response = await api.get(`/scanner/progress/${data.job_id}`)
-            const scan = response.data
-            setProgress({ ...scan.progress, isScanning: scan.status === 'running' })
-            if (scan.status === 'complete') {
+      try {
+        const { data } = await api.post('/scanner/start', configRef.current)
+        await new Promise((resolve, reject) => {
+          let polling = false
+          const poll = async () => {
+            if (polling) return
+            polling = true
+            try {
+              const response = await api.get(`/scanner/progress/${data.job_id}`)
+              const scan = response.data
+              setProgress({ ...scan.progress, isScanning: scan.status === 'running' })
+              if (scan.status === 'complete') {
+                clearInterval(progressTimerRef.current)
+                processResults(scan.result)
+                resolve()
+              } else if (scan.status === 'error') {
+                clearInterval(progressTimerRef.current)
+                reject(new Error(scan.error || 'Scan failed'))
+              }
+            } catch (error) {
               clearInterval(progressTimerRef.current)
-              processResults(scan.result)
-              resolve()
-            } else if (scan.status === 'error') {
-              clearInterval(progressTimerRef.current)
-              reject(new Error(scan.error || 'Scan failed'))
+              reject(error)
+            } finally {
+              polling = false
             }
-          } catch (error) {
-            clearInterval(progressTimerRef.current)
-            reject(error)
-          } finally {
-            polling = false
           }
-        }
-        poll()
-        progressTimerRef.current = setInterval(poll, 500)
-      })
+          poll()
+          progressTimerRef.current = setInterval(poll, 500)
+        })
+      } catch (error) {
+        // The deployed backend may still be on the pre-progress API. Keep the
+        // scanner usable until its Railway service is updated.
+        if (error.response?.status !== 404) throw error
+        setProgress({ processed: 0, total: 0, currentStock: 'Scanning stocks...', isScanning: true })
+        const response = await api.post('/scanner/run', configRef.current)
+        processResults(response.data)
+        setProgress({ processed: 0, total: 0, currentStock: null, isScanning: false })
+      }
       return true
     } catch (e) {
       console.error('Scanner error', e)
