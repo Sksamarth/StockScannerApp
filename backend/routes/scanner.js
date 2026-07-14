@@ -1,7 +1,9 @@
 const express = require('express')
+const { randomUUID } = require('crypto')
 const supabase = require('../supabase')
 const { fetchCandles, buildStockData, MARKET_SYMBOLS } = require('../services/upstox')
 const router = express.Router()
+const activeScans = new Map()
 
 // Simple in-process strategy runner (eval-based for user Python-like JS strategies)
 // For production, use a sandboxed worker. Here we support JSON-rule strategies.
@@ -22,14 +24,7 @@ function runStrategy(strategyCode, stockData) {
   }
 }
 
-router.post('/run', async (req, res) => {
-  const access_token = req.headers['x-access-token']
-  const api_key = req.headers['x-api-key']
-  const { market, timeframe, strategy_id } = req.body
-
-  if (!access_token) return res.status(401).json({ error: 'No access token' })
-
-  // Load strategy
+async function runScan({ access_token, api_key, market, timeframe, strategy_id, onProgress }) {
   let strategyCode = null
   if (strategy_id) {
     const { data } = await supabase.from('strategies').select('code').eq('id', strategy_id).single()
@@ -39,15 +34,22 @@ router.post('/run', async (req, res) => {
   const symbols = MARKET_SYMBOLS[market] || MARKET_SYMBOLS['Nifty 50']
   const alerts = []
   let scanned = 0
+  let processed = 0
+
+  const reportProgress = (currentStock = null) => {
+    onProgress?.({ processed, total: symbols.length, currentStock })
+  }
 
   // Scan in batches of 5 to avoid rate limits
   for (let i = 0; i < symbols.length; i += 5) {
     const batch = symbols.slice(i, i + 5)
     await Promise.all(
       batch.map(async (instrumentKey) => {
+        const symbol = instrumentKey.split('|')[1] || instrumentKey
+        reportProgress(symbol)
         try {
           const candles = await fetchCandles(instrumentKey, timeframe, access_token)
-          const stockData = buildStockData(candles, instrumentKey.split('|')[1] || instrumentKey)
+          const stockData = buildStockData(candles, symbol)
           if (!stockData) return
           scanned++
 
@@ -87,15 +89,76 @@ router.post('/run', async (req, res) => {
           }
         } catch {
           // Skip failed symbols silently
+        } finally {
+          processed++
+          reportProgress(symbol)
         }
       })
     )
   }
 
-  res.json({
+  return {
     alerts,
     stats: { scanned, matched: alerts.length, lastScan: new Date().toISOString() },
+  }
+}
+
+router.post('/start', async (req, res) => {
+  const access_token = req.headers['x-access-token']
+  const api_key = req.headers['x-api-key']
+  const { market, timeframe, strategy_id } = req.body
+
+  if (!access_token) return res.status(401).json({ error: 'No access token' })
+
+  const id = randomUUID()
+  const job = {
+    apiKey: api_key,
+    status: 'running',
+    progress: { processed: 0, total: (MARKET_SYMBOLS[market] || MARKET_SYMBOLS['Nifty 50']).length, currentStock: null },
+    result: null,
+  }
+  activeScans.set(id, job)
+
+  runScan({
+    access_token,
+    api_key,
+    market,
+    timeframe,
+    strategy_id,
+    onProgress: (progress) => { job.progress = progress },
   })
+    .then((result) => {
+      job.status = 'complete'
+      job.result = result
+      job.progress = { ...job.progress, processed: job.progress.total, currentStock: null }
+    })
+    .catch((error) => {
+      job.status = 'error'
+      job.error = error.message || 'Scan failed'
+    })
+
+  res.status(202).json({ job_id: id })
+})
+
+router.get('/progress/:id', (req, res) => {
+  const job = activeScans.get(req.params.id)
+  if (!job || job.apiKey !== req.headers['x-api-key']) return res.status(404).json({ error: 'Scan not found' })
+
+  res.json({ status: job.status, progress: job.progress, result: job.result, error: job.error })
+})
+
+// Kept for compatibility with existing API clients.
+router.post('/run', async (req, res) => {
+  const access_token = req.headers['x-access-token']
+  const api_key = req.headers['x-api-key']
+  if (!access_token) return res.status(401).json({ error: 'No access token' })
+
+  try {
+    const result = await runScan({ ...req.body, access_token, api_key })
+    res.json(result)
+  } catch (error) {
+    res.status(500).json({ error: error.message || 'Scan failed' })
+  }
 })
 
 // Alert history

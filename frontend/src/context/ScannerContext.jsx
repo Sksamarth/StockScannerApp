@@ -8,7 +8,9 @@ export function ScannerProvider({ children }) {
   const [status, setStatus] = useState('stopped')
   const [alerts, setAlerts] = useState([])
   const [stats, setStats] = useState({ scanned: 0, matched: 0, lastScan: null })
+  const [progress, setProgress] = useState({ processed: 0, total: 0, currentStock: null, isScanning: false })
   const intervalRef = useRef(null)
+  const progressTimerRef = useRef(null)
   const configRef = useRef(null)
 
   useEffect(() => { requestNotificationPermission() }, [])
@@ -27,10 +29,37 @@ export function ScannerProvider({ children }) {
 
   const run = async () => {
     try {
-      const res = await api.post('/scanner/run', configRef.current)
-      processResults(res.data)
+      const { data } = await api.post('/scanner/start', configRef.current)
+      await new Promise((resolve, reject) => {
+        let polling = false
+        const poll = async () => {
+          if (polling) return
+          polling = true
+          try {
+            const response = await api.get(`/scanner/progress/${data.job_id}`)
+            const scan = response.data
+            setProgress({ ...scan.progress, isScanning: scan.status === 'running' })
+            if (scan.status === 'complete') {
+              clearInterval(progressTimerRef.current)
+              processResults(scan.result)
+              resolve()
+            } else if (scan.status === 'error') {
+              clearInterval(progressTimerRef.current)
+              reject(new Error(scan.error || 'Scan failed'))
+            }
+          } catch (error) {
+            clearInterval(progressTimerRef.current)
+            reject(error)
+          } finally {
+            polling = false
+          }
+        }
+        poll()
+        progressTimerRef.current = setInterval(poll, 500)
+      })
     } catch (e) {
       console.error('Scanner error', e)
+      setProgress((current) => ({ ...current, isScanning: false }))
     }
   }
 
@@ -43,6 +72,7 @@ export function ScannerProvider({ children }) {
 
   const pause = () => {
     clearInterval(intervalRef.current)
+    clearInterval(progressTimerRef.current)
     setStatus('paused')
   }
 
@@ -54,13 +84,15 @@ export function ScannerProvider({ children }) {
 
   const stop = () => {
     clearInterval(intervalRef.current)
+    clearInterval(progressTimerRef.current)
     setStatus('stopped')
     setAlerts([])
     setStats({ scanned: 0, matched: 0, lastScan: null })
+    setProgress({ processed: 0, total: 0, currentStock: null, isScanning: false })
   }
 
   return (
-    <ScannerContext.Provider value={{ status, alerts, stats, start, pause, resume, stop }}>
+    <ScannerContext.Provider value={{ status, alerts, stats, progress, start, pause, resume, stop }}>
       {children}
     </ScannerContext.Provider>
   )

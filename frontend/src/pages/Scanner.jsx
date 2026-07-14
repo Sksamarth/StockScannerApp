@@ -16,7 +16,7 @@ const INTERVALS = [
 ]
 
 export default function Scanner() {
-  const { status, stats, start, pause, resume, stop } = useScanner()
+  const { status, stats, progress, start, pause, resume, stop } = useScanner()
   const { upstoxSession } = useAuth()
   const [strategies, setStrategies] = useState([])
   const [config, setConfig] = useState({ market: 'Nifty 50', timeframe: '15min', interval: 60, strategy_id: '' })
@@ -156,6 +156,23 @@ export default function Scanner() {
               </div>
             ))}
           </div>
+
+          {(isRunning || progress?.isScanning) && (
+            <div className="rounded-lg border border-gray-800 bg-gray-950 p-3 space-y-2">
+              <div className="flex items-center justify-between gap-3 text-xs">
+                <span className="text-gray-400">{progress?.currentStock ? `Scanning ${progress.currentStock}` : 'Preparing scan...'}</span>
+                <span className="text-blue-400 whitespace-nowrap">
+                  {progress?.processed || 0} / {progress?.total || 0}
+                </span>
+              </div>
+              <div className="h-2 overflow-hidden rounded-full bg-gray-800">
+                <div
+                  className="h-full rounded-full bg-blue-500 transition-all duration-300"
+                  style={{ width: `${progress?.total ? Math.min(100, ((progress.processed || 0) / progress.total) * 100) : 0}%` }}
+                />
+              </div>
+            </div>
+          )}
 
           <div className="flex gap-3 pt-2">
             {isStopped && <button onClick={handleStart} className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg font-medium">▶ Start</button>}
