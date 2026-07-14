@@ -22,41 +22,54 @@ export default function Scanner() {
   const [countdown, setCountdown] = useState(0)
   const [loading, setLoading] = useState(true)
   const [selectedStrategyName, setSelectedStrategyName] = useState('')
+  const [error, setError] = useState(null)
 
   // Load strategies and saved config on mount
   useEffect(() => {
     const loadData = async () => {
       try {
+        setError(null)
+        console.log('Loading strategies...')
+        
         // Fetch all strategies
         const strategiesRes = await api.get('/strategies')
-        if (Array.isArray(strategiesRes.data)) {
-          setStrategies(strategiesRes.data)
-        } else {
-          setStrategies([])
+        console.log('Strategies response:', strategiesRes.data)
+        
+        const strategiesList = Array.isArray(strategiesRes.data) ? strategiesRes.data.filter(Boolean) : []
+        setStrategies(strategiesList)
+        
+        if (strategiesList.length === 0) {
+          console.warn('No strategies found - user may not be logged in')
+          setError('No strategies found. Create one in the Strategies page.')
         }
 
         // Load saved config
-        const configRes = await api.get('/scanner/config')
-        if (configRes.data) {
-          const savedConfig = {
-            market: configRes.data.market || 'Nifty 50',
-            timeframe: configRes.data.timeframe || '15min',
-            interval: configRes.data.interval || 60,
-            strategy_id: configRes.data.strategy_id || ''
-          }
-          setConfig(savedConfig)
-          setCustomInterval(savedConfig.interval === 0 ? 60 : savedConfig.interval)
-          
-          // Find and set strategy name
-          if (savedConfig.strategy_id && Array.isArray(strategiesRes.data)) {
-            const selected = strategiesRes.data.find(s => s.id === savedConfig.strategy_id)
-            if (selected) {
-              setSelectedStrategyName(selected.name)
+        try {
+          const configRes = await api.get('/scanner/config')
+          if (configRes.data) {
+            const savedConfig = {
+              market: configRes.data.market || 'Nifty 50',
+              timeframe: configRes.data.timeframe || '15min',
+              interval: configRes.data.interval || 60,
+              strategy_id: configRes.data.strategy_id || ''
+            }
+            setConfig(savedConfig)
+            setCustomInterval(savedConfig.interval === 0 ? 60 : savedConfig.interval)
+            
+            // Find and set strategy name
+            if (savedConfig.strategy_id && strategiesList.length > 0) {
+              const selected = strategiesList.find(s => s.id === savedConfig.strategy_id)
+              if (selected) {
+                setSelectedStrategyName(selected.name)
+              }
             }
           }
+        } catch (configErr) {
+          console.log('No saved config yet:', configErr.message)
         }
       } catch (error) {
-        console.error('Error loading data:', error)
+        console.error('Error loading strategies:', error)
+        setError(`Failed to load strategies: ${error.message}`)
         setStrategies([])
       } finally {
         setLoading(false)
@@ -72,7 +85,7 @@ export default function Scanner() {
     setCountdown(interval)
     const t = setInterval(() => setCountdown((c) => (c <= 1 ? interval : c - 1)), 1000)
     return () => clearInterval(t)
-  }, [status, config.interval])
+  }, [status, config.interval, customInterval])
 
   // Save config when strategy changes
   const handleStrategyChange = async (strategyId) => {
@@ -149,7 +162,10 @@ export default function Scanner() {
   }
 
   const handleStart = () => {
-    if (!config.strategy_id) return toast.error('Select a strategy first')
+    if (!config.strategy_id) {
+      toast.error('Select a strategy first')
+      return
+    }
     const interval = config.interval === 0 ? customInterval : config.interval
     start({ ...config, interval })
   }
@@ -171,27 +187,39 @@ export default function Scanner() {
     <div className="p-6 space-y-6">
       <h1 className="text-2xl font-bold text-white">Live Scanner</h1>
 
+      {error && (
+        <div className="bg-yellow-900 bg-opacity-50 border border-yellow-600 text-yellow-200 px-4 py-3 rounded-lg">
+          ⚠️ {error}
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Config Panel */}
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 space-y-4">
           <h2 className="text-white font-semibold">Scanner Configuration</h2>
 
           <div>
-            <label className="text-gray-400 text-xs mb-1 block">Strategy</label>
+            <label className="text-gray-400 text-xs mb-1 block">Strategy {strategies.length === 0 && <span className="text-red-400">(No strategies available)</span>}</label>
             <div className="space-y-2">
               <select
                 value={config.strategy_id}
                 onChange={(e) => handleStrategyChange(e.target.value)}
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm"
+                disabled={strategies.length === 0}
+                className={`w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm ${strategies.length === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
-                <option value="">-- Select Strategy --</option>
-                {Array.isArray(strategies) && strategies.filter(Boolean).map((s) => (
+                <option value="">{strategies.length === 0 ? '-- Create strategies first --' : '-- Select Strategy --'}</option>
+                {strategies.map((s) => (
                   <option key={s.id} value={s.id}>{s.name}</option>
                 ))}
               </select>
               {selectedStrategyName && (
                 <div className="text-xs text-green-400 bg-green-900 bg-opacity-30 px-2 py-1 rounded">
                   ✓ Selected: {selectedStrategyName}
+                </div>
+              )}
+              {strategies.length === 0 && (
+                <div className="text-xs text-blue-400 bg-blue-900 bg-opacity-30 px-2 py-1 rounded">
+                  💡 Go to Strategies page to create your first strategy
                 </div>
               )}
             </div>
@@ -265,7 +293,7 @@ export default function Scanner() {
           </div>
 
           <div className="flex gap-3 pt-2">
-            {isStopped && <button onClick={handleStart} className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg font-medium">▶ Start</button>}
+            {isStopped && <button onClick={handleStart} disabled={!config.strategy_id} className={`flex-1 py-2 rounded-lg font-medium ${config.strategy_id ? 'bg-green-600 hover:bg-green-700 text-white cursor-pointer' : 'bg-gray-700 text-gray-400 cursor-not-allowed'}`}>▶ Start</button>}
             {isRunning && <button onClick={pause} className="flex-1 bg-yellow-600 hover:bg-yellow-700 text-white py-2 rounded-lg font-medium">⏸ Pause</button>}
             {isPaused && <button onClick={() => resume(config)} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-medium">▶ Resume</button>}
             {!isStopped && <button onClick={stop} className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 rounded-lg font-medium">⏹ Stop</button>}
