@@ -124,4 +124,43 @@ router.delete('/alerts/history', async (req, res) => {
   res.json({ success: true })
 })
 
+// ===== NEW: SCANNER CONFIG ENDPOINTS =====
+
+// GET saved scanner config
+router.get('/config', async (req, res) => {
+  const api_key = req.headers['x-api-key']
+  if (!api_key) return res.status(401).json({ error: 'Unauthorized' })
+
+  const { data, error } = await supabase
+    .from('scanner_configs')
+    .select('*')
+    .eq('api_key', api_key)
+    .order('updated_at', { ascending: false })
+    .limit(1)
+    .single()
+
+  if (error && error.code !== 'PGRST116') return res.status(500).json({ error: error.message })
+  res.json(data || null)
+})
+
+// SAVE scanner config
+router.post('/config', async (req, res) => {
+  const api_key = req.headers['x-api-key']
+  if (!api_key) return res.status(401).json({ error: 'Unauthorized' })
+
+  const { market, timeframe, interval, strategy_id } = req.body
+
+  const { data, error } = await supabase
+    .from('scanner_configs')
+    .upsert(
+      { api_key, market, timeframe, interval, strategy_id, updated_at: new Date().toISOString() },
+      { onConflict: 'api_key' }
+    )
+    .select()
+    .single()
+
+  if (error) return res.status(500).json({ error: error.message })
+  res.json(data)
+})
+
 module.exports = router
