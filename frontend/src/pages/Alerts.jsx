@@ -94,7 +94,7 @@ export default function Alerts() {
               </div>
               <div className="mt-3 pt-3 flex justify-between items-center text-xs text-gray-600" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
                 <span>{a.reason || '--'}</span>
-                <span>{a.time ? new Date(a.time).toLocaleTimeString() : ''}</span>
+                <span>{(a.time && !isNaN(new Date(a.time).getTime())) ? new Date(a.time).toLocaleTimeString() : ''}</span>
               </div>
             </div>
           ))}

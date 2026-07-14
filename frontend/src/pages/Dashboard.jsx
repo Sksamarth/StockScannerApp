@@ -50,7 +50,7 @@ export default function Dashboard() {
           { label: 'Scanner', value: (status || 'STOPPED').toUpperCase(), icon: Activity, color: isRunning ? '#10b981' : isPaused ? '#f59e0b' : '#6b7280', bg: isRunning ? 'rgba(16,185,129,0.1)' : 'rgba(107,114,128,0.1)' },
           { label: 'Scanned', value: stats?.scanned ?? 0, icon: BarChart2, color: '#6366f1', bg: 'rgba(99,102,241,0.1)' },
           { label: 'Signals', value: stats?.matched ?? 0, icon: TrendingUp, color: '#8b5cf6', bg: 'rgba(139,92,246,0.1)' },
-          { label: 'Last Scan', value: stats?.lastScan ? new Date(stats.lastScan).toLocaleTimeString() : '--', icon: Clock, color: '#06b6d4', bg: 'rgba(6,182,212,0.1)' },
+          { label: 'Last Scan', value: (stats?.lastScan && !isNaN(new Date(stats.lastScan).getTime())) ? new Date(stats.lastScan).toLocaleTimeString() : '--', icon: Clock, color: '#06b6d4', bg: 'rgba(6,182,212,0.1)' },
         ].map(({ label, value, icon: Icon, color, bg }) => (
           <div key={label} className="stat-card">
             <div className="flex items-center justify-between mb-3">

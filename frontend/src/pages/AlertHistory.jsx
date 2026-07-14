@@ -80,7 +80,7 @@ export default function AlertHistory() {
                   <td className="px-4 py-3 text-gray-300">₹{a.price}</td>
                   <td className="px-4 py-3 text-gray-400">{a.timeframe}</td>
                   <td className="px-4 py-3 text-gray-400 max-w-xs truncate">{a.reason}</td>
-                  <td className="px-4 py-3 text-gray-500">{new Date(a.created_at).toLocaleString()}</td>
+                  <td className="px-4 py-3 text-gray-500">{(a.created_at && !isNaN(new Date(a.created_at).getTime())) ? new Date(a.created_at).toLocaleString() : '--'}</td>
                 </tr>
               ))}
             </tbody>

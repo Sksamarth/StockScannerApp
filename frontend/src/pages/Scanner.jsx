@@ -68,7 +68,7 @@ export default function Scanner() {
               className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm"
             >
               <option value="">-- Select Strategy --</option>
-              {Array.isArray(strategies) && strategies.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+              {Array.isArray(strategies) && strategies.filter(Boolean).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
           </div>
 
@@ -129,7 +129,7 @@ export default function Scanner() {
               { label: 'Status', value: (status || 'STOPPED').toUpperCase(), color: isRunning ? 'text-green-400' : isPaused ? 'text-yellow-400' : 'text-gray-500' },
               { label: 'Stocks Scanned', value: stats?.scanned ?? 0 },
               { label: 'Signals Found', value: stats?.matched ?? 0 },
-              { label: 'Last Scan', value: stats?.lastScan ? new Date(stats.lastScan).toLocaleTimeString() : '--' },
+              { label: 'Last Scan', value: (stats?.lastScan && !isNaN(new Date(stats.lastScan).getTime())) ? new Date(stats.lastScan).toLocaleTimeString() : '--' },
               { label: 'Next Scan In', value: isRunning ? `${countdown}s` : '--' },
             ].map(({ label, value, color }) => (
               <div key={label} className="flex justify-between items-center py-2 border-b border-gray-800">

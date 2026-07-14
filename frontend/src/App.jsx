@@ -11,6 +11,7 @@ import AlertHistory from './pages/AlertHistory'
 import StrategyManager from './pages/StrategyManager'
 import Settings from './pages/Settings'
 import Debug from './pages/Debug'
+import ErrorBoundary from './components/ErrorBoundary'
 
 function AppLayout() {
   const { upstoxSession } = useAuth()
@@ -38,15 +39,17 @@ function AppLayout() {
 export default function App() {
   return (
     <BrowserRouter>
-      <AuthProvider>
-        <ScannerProvider>
-          <AppLayout />
-          <Toaster
-            position="top-right"
-            toastOptions={{ style: { background: '#1f2937', color: '#fff', border: '1px solid #374151' } }}
-          />
-        </ScannerProvider>
-      </AuthProvider>
+      <ErrorBoundary>
+        <AuthProvider>
+          <ScannerProvider>
+            <AppLayout />
+            <Toaster
+              position="top-right"
+              toastOptions={{ style: { background: '#1f2937', color: '#fff', border: '1px solid #374151' } }}
+            />
+          </ScannerProvider>
+        </AuthProvider>
+      </ErrorBoundary>
     </BrowserRouter>
   )
 }

@@ -18,10 +18,17 @@ export default function Settings() {
   }
 
   const enableNotifications = () => {
-    Notification.requestPermission().then((p) => {
-      if (p === 'granted') toast.success('Notifications enabled!')
-      else toast.error('Permission denied')
-    })
+    if (typeof window === 'undefined' || !('Notification' in window) || typeof Notification.requestPermission !== 'function') {
+      return toast.error('Notifications are not supported in this browser.')
+    }
+    Notification.requestPermission()
+      .then((p) => {
+        if (p === 'granted') toast.success('Notifications enabled!')
+        else toast.error('Permission denied')
+      })
+      .catch((e) => {
+        toast.error('Failed to request notifications: ' + e.message)
+      })
   }
 
   return (

@@ -23,41 +23,64 @@ export function playAlertSound() {
 
 // ── Vibration ──────────────────────────────────────────────────────────────
 export async function vibrate() {
-  if (isNative) {
-    await Haptics.impact({ style: ImpactStyle.Medium }).catch(() => {})
-  } else if (navigator.vibrate) {
-    navigator.vibrate([200, 100, 200])
-  }
+  try {
+    if (isNative) {
+      await Haptics.impact({ style: ImpactStyle.Medium }).catch(() => {})
+    } else if (typeof navigator !== 'undefined' && navigator.vibrate) {
+      navigator.vibrate([200, 100, 200])
+    }
+  } catch { /* silent */ }
 }
 
 // ── Permission ─────────────────────────────────────────────────────────────
 export async function requestNotificationPermission() {
-  if (isNative) {
-    await LocalNotifications.requestPermissions().catch(() => {})
-  } else if ('Notification' in window && Notification.permission === 'default') {
-    await Notification.requestPermission()
+  try {
+    if (isNative) {
+      await LocalNotifications.requestPermissions().catch(() => {})
+    } else if (
+      typeof window !== 'undefined' &&
+      'Notification' in window &&
+      Notification.permission === 'default' &&
+      typeof Notification.requestPermission === 'function'
+    ) {
+      await Notification.requestPermission().catch(() => {})
+    }
+  } catch (e) {
+    console.error('Failed to request notification permission:', e)
   }
 }
 
 // ── Send Notification ──────────────────────────────────────────────────────
 export async function sendNotification(title, body) {
-  if (isNative) {
-    await LocalNotifications.schedule({
-      notifications: [{
-        title,
-        body,
-        id: Date.now(),
-        schedule: { at: new Date(Date.now() + 100) },
-      }],
-    }).catch(() => {})
-  } else if (Notification.permission === 'granted') {
-    new Notification(title, { body, icon: '/favicon.svg' })
+  try {
+    if (isNative) {
+      await LocalNotifications.schedule({
+        notifications: [{
+          title,
+          body,
+          id: Date.now(),
+          schedule: { at: new Date(Date.now() + 100) },
+        }],
+      }).catch(() => {})
+    } else if (
+      typeof window !== 'undefined' &&
+      'Notification' in window &&
+      Notification.permission === 'granted'
+    ) {
+      new Notification(title, { body, icon: '/favicon.svg' })
+    }
+  } catch (e) {
+    console.error('Failed to send notification:', e)
   }
 }
 
 // ── Fire All ───────────────────────────────────────────────────────────────
 export async function fireAlertNotification(symbol, signal, price) {
-  playAlertSound()
-  await vibrate()
-  await sendNotification(`${signal} Signal: ${symbol}`, `Price: ₹${price}`)
+  try {
+    playAlertSound()
+    await vibrate()
+    await sendNotification(`${signal} Signal: ${symbol}`, `Price: ₹${price}`)
+  } catch (e) {
+    console.error('Failed to fire alert notification:', e)
+  }
 }
