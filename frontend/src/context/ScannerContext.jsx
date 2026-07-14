@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useRef, useEffect } from 'react'
 import api from '../lib/api'
 import { fireAlertNotification, requestNotificationPermission } from '../lib/notifications'
+import toast from 'react-hot-toast'
 
 const ScannerContext = createContext(null)
 
@@ -57,17 +58,21 @@ export function ScannerProvider({ children }) {
         poll()
         progressTimerRef.current = setInterval(poll, 500)
       })
+      return true
     } catch (e) {
       console.error('Scanner error', e)
       setProgress((current) => ({ ...current, isScanning: false }))
+      setStatus('stopped')
+      toast.error(e.response?.data?.error || 'Unable to start the scanner')
+      return false
     }
   }
 
   const start = async (config) => {
     configRef.current = config
     setStatus('running')
-    await run()
-    intervalRef.current = setInterval(run, (config.interval || 60) * 1000)
+    const completed = await run()
+    if (completed) intervalRef.current = setInterval(run, (config.interval || 60) * 1000)
   }
 
   const pause = () => {
@@ -76,10 +81,11 @@ export function ScannerProvider({ children }) {
     setStatus('paused')
   }
 
-  const resume = (config) => {
+  const resume = async (config) => {
     configRef.current = config
     setStatus('running')
-    intervalRef.current = setInterval(run, (config.interval || 60) * 1000)
+    const completed = await run()
+    if (completed) intervalRef.current = setInterval(run, (config.interval || 60) * 1000)
   }
 
   const stop = () => {
