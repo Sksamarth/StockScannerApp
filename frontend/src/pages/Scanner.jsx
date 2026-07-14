@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
-import api from '../lib/api'
 import { useScanner } from '../context/ScannerContext'
+import { useAuth } from '../context/AuthContext'
+import { supabase } from '../lib/supabase'
 import toast from 'react-hot-toast'
 
 const MARKET_CATEGORIES = [
@@ -16,22 +17,39 @@ const INTERVALS = [
 
 export default function Scanner() {
   const { status, stats, start, pause, resume, stop } = useScanner()
+  const { upstoxSession } = useAuth()
   const [strategies, setStrategies] = useState([])
   const [config, setConfig] = useState({ market: 'Nifty 50', timeframe: '15min', interval: 60, strategy_id: '' })
   const [customInterval, setCustomInterval] = useState(60)
   const [countdown, setCountdown] = useState(0)
 
   useEffect(() => {
-    api.get('/strategies')
-      .then((r) => {
-        if (Array.isArray(r.data)) {
-          setStrategies(r.data)
-        } else {
-          setStrategies([])
-        }
-      })
-      .catch(() => setStrategies([]))
-  }, [])
+    const apiKey = upstoxSession?.api_key
+    if (!apiKey) {
+      setStrategies([])
+      return
+    }
+
+    let cancelled = false
+    const loadStrategies = async () => {
+      const { data, error } = await supabase
+        .from('strategies')
+        .select('id, name')
+        .eq('api_key', apiKey)
+        .order('created_at', { ascending: false })
+
+      if (cancelled) return
+      if (error) {
+        setStrategies([])
+        toast.error('Failed to load strategies: ' + error.message)
+        return
+      }
+      setStrategies(data || [])
+    }
+
+    loadStrategies()
+    return () => { cancelled = true }
+  }, [upstoxSession?.api_key])
 
   useEffect(() => {
     if (status !== 'running') return
